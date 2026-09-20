@@ -31,6 +31,8 @@ jobs:
           ZIP="${{ steps.archive.outputs.zip }}"
           mkdir -p .extract-temp
           unzip -o "$ZIP" -d .extract-temp
+          rm -rf .extract-temp/.github/workflows
+          rm -f .extract-temp/blind-date-show-fixed-v12.zip
           DIRS="$(find .extract-temp -mindepth 1 -maxdepth 1 -type d | wc -l)"
           FILES="$(find .extract-temp -mindepth 1 -maxdepth 1 -type f | wc -l)"
           if [ "$DIRS" = "1" ] && [ "$FILES" = "0" ]; then
