@@ -162,7 +162,25 @@
     '</div></div>';
   }
 
+  let loadInFlight = null;
+  let loadTimer = null;
+  let lastLoadAt = 0;
+  const LOAD_DEBOUNCE_MS = 700;
+
+  function scheduleLoad(delay = LOAD_DEBOUNCE_MS){
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(() => { loadTimer = null; load(); }, delay);
+  }
+
   async function load(){
+    const now = Date.now();
+    if (loadInFlight) return loadInFlight;
+    if (now - lastLoadAt < LOAD_DEBOUNCE_MS) {
+      scheduleLoad(LOAD_DEBOUNCE_MS - (now - lastLoadAt));
+      return;
+    }
+    lastLoadAt = now;
+    loadInFlight = (async () => {
     try{
       const [me, pulse, friends, dms, servers, summary] = await Promise.all([
         api("/api/me"), api("/api/pulse"), api("/api/friends"), api("/api/dms"), api("/api/servers"), api("/api/platform/summary")
@@ -179,7 +197,11 @@
         body.innerHTML = '<div class="orbit-command-room"><div class="ocr-wrap"><section class="ocr-panel"><h3>Command Room</h3><p>Unable to load the live social state right now.</p></section></div></div>';
       }
       setActive();
+    } finally {
+      loadInFlight = null;
     }
+    })();
+    return loadInFlight;
   }
 
   function wire(data){
@@ -226,7 +248,7 @@
       window.__ORBIT_COMMAND_SET_VIEW_PATCHED__=true;
       window.setView=function(view){
         const result = baseSetView.apply(this, arguments);
-        if(view==="home") setTimeout(load,0);
+        if(view==="home") scheduleLoad(120);
         return result;
       };
     }
@@ -235,12 +257,12 @@
       window.__ORBIT_COMMAND_HOME_PATCHED__=true;
       window.renderHomePage=function(){
         const result=baseRenderHome.apply(this,arguments);
-        setTimeout(load,0);
+scheduleLoad(120);
         return result;
       };
     }
     if((document.body.classList.contains("orbit-discord-home") || $("#global-page")?.classList.contains("discord-home-active")) && !$("#orbit-command-room")){
-      setTimeout(load,20);
+      scheduleLoad(180);
     }
   }
 
@@ -254,7 +276,7 @@
     },350);
     const observer=new MutationObserver(()=>{
       if(document.body.classList.contains("orbit-discord-home") && !$("#orbit-command-room")){
-        setTimeout(load,20);
+        scheduleLoad(180);
       }
     });
     observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
