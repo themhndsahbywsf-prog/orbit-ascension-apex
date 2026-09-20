@@ -11,9 +11,18 @@ function requestId(req, res, next) {
 }
 
 function createApiLimiter() {
-  const windowMs = Math.max(60000, Number(process.env.RATE_LIMIT_WINDOW_MS || 900000));
-  const max = Math.max(100, Number(process.env.RATE_LIMIT_MAX || 1200));
-  return rateLimit({ windowMs, limit: max, standardHeaders: "draft-7", legacyHeaders: false, handler: (_req,res)=>res.status(429).json({error:"Too many requests. Please try again shortly."}) });
+  const windowMs = Math.max(30000, Number(process.env.RATE_LIMIT_WINDOW_MS || 60000));
+  const max = Math.max(500, Number(process.env.RATE_LIMIT_MAX || 3000));
+  const realtimeReadPaths = new Set(["/me","/pulse","/friends","/dms","/servers","/platform/summary"]);
+  return rateLimit({
+    windowMs,
+    limit: max,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    skip: req => req.method === "GET" && realtimeReadPaths.has(req.path),
+    skipSuccessfulRequests: true,
+    handler: (_req,res)=>res.status(429).json({error:"Too many requests. Please try again shortly."})
+  });
 }
 
 function applySecurity(app) {
